@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.vibepay.repository.OrderRepository">
+
+    <resultMap id="orderResultMap" type="com.vibepay.domain.Order">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="orderNumber" column="order_number"/>
+        <result property="productName" column="product_name"/>
+        <result property="productPrice" column="product_price"/>
+        <result property="quantity" column="quantity"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="pointAmount" column="point_amount"/>
+        <result property="cardAmount" column="card_amount"/>
+        <result property="status" column="status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (
+            member_id,
+            order_number,
+            product_name,
+            product_price,
+            quantity,
+            total_amount,
+            point_amount,
+            card_amount,
+            status,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{memberId},
+            #{orderNumber},
+            #{productName},
+            #{productPrice},
+            #{quantity},
+            #{totalAmount},
+            #{pointAmount},
+            #{cardAmount},
+            #{status},
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <select id="findById" resultMap="orderResultMap">
+        SELECT id,
+               member_id,
+               order_number,
+               product_name,
+               product_price,
+               quantity,
+               total_amount,
+               point_amount,
+               card_amount,
+               status,
+               created_at,
+               updated_at
+        FROM orders
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByOrderNumber" resultMap="orderResultMap">
+        SELECT id,
+               member_id,
+               order_number,
+               product_name,
+               product_price,
+               quantity,
+               total_amount,
+               point_amount,
+               card_amount,
+               status,
+               created_at,
+               updated_at
+        FROM orders
+        WHERE order_number = #{orderNumber}
+    </select>
+
+    <select id="findByMemberId" resultMap="orderResultMap">
+        SELECT id,
+               member_id,
+               order_number,
+               product_name,
+               product_price,
+               quantity,
+               total_amount,
+               point_amount,
+               card_amount,
+               status,
+               created_at,
+               updated_at
+        FROM orders
+        WHERE member_id = #{memberId}
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE orders
+        SET status = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePaymentAmounts">
+        UPDATE orders
+        SET point_amount = #{pointAmount},
+            card_amount = #{cardAmount},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+</mapper>

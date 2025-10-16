@@ -1,0 +1,53 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: vibe-pay-api
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/vibepay
+    username: postgres
+    password: postgres
+  session:
+    store-type: none
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.vibepay.domain
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+---
+spring:
+  config:
+    activate:
+      on-profile: stg
+
+---
+spring:
+  config:
+    activate:
+      on-profile: cbo
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod

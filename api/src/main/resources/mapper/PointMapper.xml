@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.vibepay.repository.PointRepository">
+
+    <resultMap id="pointResultMap" type="com.vibepay.domain.Point">
+        <id property="id" column="id"/>
+        <result property="memberId" column="member_id"/>
+        <result property="balance" column="balance"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="createInitialPoint">
+        INSERT INTO point (member_id, balance, created_at, updated_at)
+        VALUES (#{memberId}, #{balance}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <select id="findByMemberId" resultMap="pointResultMap">
+        SELECT id, member_id, balance, created_at, updated_at
+        FROM point
+        WHERE member_id = #{memberId}
+    </select>
+
+    <update id="updateBalance">
+        UPDATE point
+        SET balance = #{balance},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE member_id = #{memberId}
+    </update>
+
+    <update id="deductBalance">
+        UPDATE point
+        SET balance = balance - #{amount},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE member_id = #{memberId}
+    </update>
+
+    <update id="restoreBalance">
+        UPDATE point
+        SET balance = balance + #{amount},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE member_id = #{memberId}
+    </update>
+
+</mapper>

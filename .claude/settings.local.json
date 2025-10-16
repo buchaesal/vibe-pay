@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__jetbrains__list_directory_tree",
+      "Bash(cat:*)",
+      "Read(//Users/parkh/.config/**)",
+      "mcp__jetbrains__create_new_file",
+      "Bash(npm run lint)",
+      "Bash(dir:*)",
+      "Bash(for dir in controller service repository domain dto config util)",
+      "Bash(do touch $dir/.gitkeep)",
+      "Bash(done)",
+      "Bash(touch:*)",
+      "Bash(tree:*)",
+      "Bash(./mvnw clean compile:*)",
+      "Bash(mvn test:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(gradlew.bat test:*)",
+      "Bash(cmd /c \"mvnw.cmd test -Dtest=PointServiceTest\")",
+      "Bash(./gradlew clean test:*)",
+      "Bash(gradlew.bat clean test:*)",
+      "Bash(./gradlew.bat clean test:*)",
+      "Bash(./mvnw.cmd clean test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "outputStyle": "korean"
+}
