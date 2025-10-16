@@ -100,6 +100,31 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="findByMemberIdWithPaging" resultMap="orderResultMap">
+        SELECT id,
+               member_id,
+               order_number,
+               product_name,
+               product_price,
+               quantity,
+               total_amount,
+               point_amount,
+               card_amount,
+               status,
+               created_at,
+               updated_at
+        FROM orders
+        WHERE member_id = #{memberId}
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByMemberId" resultType="long">
+        SELECT COUNT(*)
+        FROM orders
+        WHERE member_id = #{memberId}
+    </select>
+
     <update id="updateStatus">
         UPDATE orders
         SET status = #{status},

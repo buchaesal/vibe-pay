@@ -28,6 +28,14 @@ server:
   servlet:
     context-path: /
 
+# PG 결제 설정
+payment:
+  inicis:
+    mid: INIpayTest
+    signKey: SU5JTElURV9UUklQTEVERVNfS0VZU1RS
+    iniApiKey: ItEQKi3rY7uvDS8l
+    hashKey: 3CB8183A4BE283555ACC8363C0360223
+
 ---
 spring:
   config:

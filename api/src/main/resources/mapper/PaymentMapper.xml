@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.vibepay.repository.PaymentRepository">
+
+    <resultMap id="paymentResultMap" type="com.vibepay.domain.Payment">
+        <id property="id" column="id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="paymentMethod" column="payment_method"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="pgType" column="pg_type"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="cardAmount" column="card_amount"/>
+        <result property="pointAmount" column="point_amount"/>
+        <result property="pgTid" column="pg_tid"/>
+        <result property="authCode" column="auth_code"/>
+        <result property="cardNumber" column="card_number"/>
+        <result property="cardName" column="card_name"/>
+        <result property="status" column="status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment (
+            order_id,
+            payment_method,
+            pg_type,
+            total_amount,
+            card_amount,
+            point_amount,
+            pg_tid,
+            auth_code,
+            card_number,
+            card_name,
+            status,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{orderId},
+            #{paymentMethod},
+            #{pgType},
+            #{totalAmount},
+            #{cardAmount},
+            #{pointAmount},
+            #{pgTid},
+            #{authCode},
+            #{cardNumber},
+            #{cardName},
+            #{status},
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE payment
+        SET order_id = #{orderId},
+            payment_method = #{paymentMethod},
+            pg_type = #{pgType},
+            total_amount = #{totalAmount},
+            card_amount = #{cardAmount},
+            point_amount = #{pointAmount},
+            pg_tid = #{pgTid},
+            auth_code = #{authCode},
+            card_number = #{cardNumber},
+            card_name = #{cardName},
+            status = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" resultMap="paymentResultMap">
+        SELECT id,
+               order_id,
+               payment_method,
+               pg_type,
+               total_amount,
+               card_amount,
+               point_amount,
+               pg_tid,
+               auth_code,
+               card_number,
+               card_name,
+               status,
+               created_at,
+               updated_at
+        FROM payment
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByOrderId" resultMap="paymentResultMap">
+        SELECT id,
+               order_id,
+               payment_method,
+               pg_type,
+               total_amount,
+               card_amount,
+               point_amount,
+               pg_tid,
+               auth_code,
+               card_number,
+               card_name,
+               status,
+               created_at,
+               updated_at
+        FROM payment
+        WHERE order_id = #{orderId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findByPgTid" resultMap="paymentResultMap">
+        SELECT id,
+               order_id,
+               payment_method,
+               pg_type,
+               total_amount,
+               card_amount,
+               point_amount,
+               pg_tid,
+               auth_code,
+               card_number,
+               card_name,
+               status,
+               created_at,
+               updated_at
+        FROM payment
+        WHERE pg_tid = #{pgTid}
+    </select>
+
+    <select id="findByMemberId" resultMap="paymentResultMap">
+        SELECT p.id,
+               p.order_id,
+               p.payment_method,
+               p.pg_type,
+               p.total_amount,
+               p.card_amount,
+               p.point_amount,
+               p.pg_tid,
+               p.auth_code,
+               p.card_number,
+               p.card_name,
+               p.status,
+               p.created_at,
+               p.updated_at
+        FROM payment p
+                 INNER JOIN orders o ON p.order_id = o.id
+        WHERE o.member_id = #{memberId}
+        ORDER BY p.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByMemberId" resultType="int">
+        SELECT COUNT(*)
+        FROM payment p
+                 INNER JOIN orders o ON p.order_id = o.id
+        WHERE o.member_id = #{memberId}
+    </select>
+
+    <select id="findByStatus" resultMap="paymentResultMap">
+        SELECT id,
+               order_id,
+               payment_method,
+               pg_type,
+               total_amount,
+               card_amount,
+               point_amount,
+               pg_tid,
+               auth_code,
+               card_number,
+               card_name,
+               status,
+               created_at,
+               updated_at
+        FROM payment
+        WHERE status = #{status}
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM payment
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

@@ -2,6 +2,7 @@ package com.vibepay.controller;
 
 import com.vibepay.dto.BalanceResponse;
 import com.vibepay.dto.PointDeductRequest;
+import com.vibepay.dto.PointHistoryResponse;
 import com.vibepay.dto.PointRestoreRequest;
 import com.vibepay.service.PointService;
 import jakarta.servlet.http.HttpSession;
@@ -9,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/point")
@@ -45,6 +48,15 @@ public class PointController {
             @Valid @RequestBody PointRestoreRequest request,
             HttpSession session) {
         BalanceResponse response = pointService.restore(request.getAmount(), session);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 적립금 변동 이력 조회
+     */
+    @GetMapping("/history")
+    public ResponseEntity<List<PointHistoryResponse>> getPointHistory(HttpSession session) {
+        List<PointHistoryResponse> response = pointService.getPointHistory(session);
         return ResponseEntity.ok(response);
     }
 }

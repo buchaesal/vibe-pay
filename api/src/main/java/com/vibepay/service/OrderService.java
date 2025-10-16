@@ -5,6 +5,8 @@ import com.vibepay.domain.OrderStatus;
 import com.vibepay.dto.OrderCreateRequest;
 import com.vibepay.dto.OrderListResponse;
 import com.vibepay.dto.OrderResponse;
+import com.vibepay.dto.PageRequest;
+import com.vibepay.dto.PageResponse;
 import com.vibepay.exception.OrderAlreadyCancelledException;
 import com.vibepay.exception.OrderNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
@@ -80,6 +82,32 @@ public class OrderService {
         return orders.stream()
                 .map(OrderListResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 주문 목록 조회 (페이징)
+     * - HttpSession에서 memberId 가져오기
+     * - memberId로 주문 목록 조회 (페이징, 최신순)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<OrderListResponse> getOrderListWithPaging(PageRequest pageRequest, HttpSession session) {
+        Long memberId = getMemberIdFromSession(session);
+
+        // 총 주문 개수 조회
+        long totalElements = orderRepository.countByMemberId(memberId);
+
+        // 페이징된 주문 목록 조회
+        List<Order> orders = orderRepository.findByMemberIdWithPaging(
+                memberId,
+                pageRequest.getOffset(),
+                pageRequest.getSize()
+        );
+
+        List<OrderListResponse> content = orders.stream()
+                .map(OrderListResponse::from)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(content, pageRequest.getPage(), pageRequest.getSize(), totalElements);
     }
 
     /**

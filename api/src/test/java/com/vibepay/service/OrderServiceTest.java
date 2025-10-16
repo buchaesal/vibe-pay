@@ -5,6 +5,8 @@ import com.vibepay.domain.OrderStatus;
 import com.vibepay.dto.OrderCreateRequest;
 import com.vibepay.dto.OrderListResponse;
 import com.vibepay.dto.OrderResponse;
+import com.vibepay.dto.PageRequest;
+import com.vibepay.dto.PageResponse;
 import com.vibepay.exception.OrderAlreadyCancelledException;
 import com.vibepay.exception.OrderNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
@@ -346,5 +348,109 @@ class OrderServiceTest {
         then(orderRepository).should(times(1)).findById(1L);
         then(orderRepository).should(never()).updateStatus(anyLong(), any());
         then(pointService).should(never()).restore(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("주문 목록 조회 성공 - 페이징")
+    void getOrderListWithPaging_success() {
+        // given
+        PageRequest pageRequest = new PageRequest(0, 5);
+        List<Order> orders = Arrays.asList(paidOrder, pendingOrder);
+        long totalElements = 10L;
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+        given(orderRepository.countByMemberId(memberId)).willReturn(totalElements);
+        given(orderRepository.findByMemberIdWithPaging(memberId, 0L, 5)).willReturn(orders);
+
+        // when
+        PageResponse<OrderListResponse> response = orderService.getOrderListWithPaging(pageRequest, session);
+
+        // then
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getPage()).isEqualTo(0);
+        assertThat(response.getSize()).isEqualTo(5);
+        assertThat(response.getTotalElements()).isEqualTo(10L);
+        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.isHasPrevious()).isFalse();
+
+        then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(times(1)).countByMemberId(memberId);
+        then(orderRepository).should(times(1)).findByMemberIdWithPaging(memberId, 0L, 5);
+    }
+
+    @Test
+    @DisplayName("주문 목록 조회 성공 - 페이징, 마지막 페이지")
+    void getOrderListWithPaging_success_lastPage() {
+        // given
+        PageRequest pageRequest = new PageRequest(1, 5);
+        List<Order> orders = Arrays.asList(pendingOrder);
+        long totalElements = 6L;
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+        given(orderRepository.countByMemberId(memberId)).willReturn(totalElements);
+        given(orderRepository.findByMemberIdWithPaging(memberId, 5L, 5)).willReturn(orders);
+
+        // when
+        PageResponse<OrderListResponse> response = orderService.getOrderListWithPaging(pageRequest, session);
+
+        // then
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getPage()).isEqualTo(1);
+        assertThat(response.getSize()).isEqualTo(5);
+        assertThat(response.getTotalElements()).isEqualTo(6L);
+        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.isHasNext()).isFalse();
+        assertThat(response.isHasPrevious()).isTrue();
+
+        then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(times(1)).countByMemberId(memberId);
+        then(orderRepository).should(times(1)).findByMemberIdWithPaging(memberId, 5L, 5);
+    }
+
+    @Test
+    @DisplayName("주문 목록 조회 성공 - 페이징, 빈 결과")
+    void getOrderListWithPaging_success_emptyResult() {
+        // given
+        PageRequest pageRequest = new PageRequest(0, 10);
+        List<Order> orders = Arrays.asList();
+        long totalElements = 0L;
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+        given(orderRepository.countByMemberId(memberId)).willReturn(totalElements);
+        given(orderRepository.findByMemberIdWithPaging(memberId, 0L, 10)).willReturn(orders);
+
+        // when
+        PageResponse<OrderListResponse> response = orderService.getOrderListWithPaging(pageRequest, session);
+
+        // then
+        assertThat(response.getContent()).isEmpty();
+        assertThat(response.getPage()).isEqualTo(0);
+        assertThat(response.getSize()).isEqualTo(10);
+        assertThat(response.getTotalElements()).isEqualTo(0L);
+        assertThat(response.getTotalPages()).isEqualTo(0);
+        assertThat(response.isHasNext()).isFalse();
+        assertThat(response.isHasPrevious()).isFalse();
+
+        then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(times(1)).countByMemberId(memberId);
+        then(orderRepository).should(times(1)).findByMemberIdWithPaging(memberId, 0L, 10);
+    }
+
+    @Test
+    @DisplayName("주문 목록 조회 실패 - 페이징, 로그인 안 됨")
+    void getOrderListWithPaging_fail_notLoggedIn() {
+        // given
+        PageRequest pageRequest = new PageRequest(0, 10);
+        given(session.getAttribute("memberId")).willReturn(null);
+
+        // when & then
+        assertThatThrownBy(() -> orderService.getOrderListWithPaging(pageRequest, session))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("로그인이 필요합니다");
+
+        then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(never()).countByMemberId(anyLong());
+        then(orderRepository).should(never()).findByMemberIdWithPaging(anyLong(), anyLong(), anyInt());
     }
 }

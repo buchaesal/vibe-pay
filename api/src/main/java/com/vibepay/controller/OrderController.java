@@ -3,6 +3,8 @@ package com.vibepay.controller;
 import com.vibepay.dto.OrderCreateRequest;
 import com.vibepay.dto.OrderListResponse;
 import com.vibepay.dto.OrderResponse;
+import com.vibepay.dto.PageRequest;
+import com.vibepay.dto.PageResponse;
 import com.vibepay.service.OrderService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -41,6 +43,20 @@ public class OrderController {
     @GetMapping("/list")
     public ResponseEntity<List<OrderListResponse>> getOrderList(HttpSession session) {
         List<OrderListResponse> response = orderService.getOrderList(session);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 주문 목록 조회 (페이징)
+     */
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<OrderListResponse>> getOrderListWithPaging(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpSession session
+    ) {
+        PageRequest pageRequest = new PageRequest(page, size);
+        PageResponse<OrderListResponse> response = orderService.getOrderListWithPaging(pageRequest, session);
         return ResponseEntity.ok(response);
     }
 

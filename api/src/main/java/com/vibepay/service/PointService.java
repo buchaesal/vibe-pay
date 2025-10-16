@@ -1,15 +1,21 @@
 package com.vibepay.service;
 
 import com.vibepay.domain.Point;
+import com.vibepay.domain.PointHistory;
+import com.vibepay.domain.TransactionType;
 import com.vibepay.dto.BalanceResponse;
+import com.vibepay.dto.PointHistoryResponse;
 import com.vibepay.exception.InsufficientBalanceException;
 import com.vibepay.exception.PointNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
+import com.vibepay.repository.PointHistoryRepository;
 import com.vibepay.repository.PointRepository;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +24,7 @@ public class PointService {
     private static final String SESSION_MEMBER_ID = "memberId";
 
     private final PointRepository pointRepository;
+    private final PointHistoryRepository pointHistoryRepository;
 
     /**
      * 잔액 조회
@@ -42,6 +49,7 @@ public class PointService {
      * - memberId로 적립금 조회
      * - 잔액 부족 체크 (balance < amount)
      * - 차감 (balance = balance - amount)
+     * - 이력 기록
      * - 업데이트된 잔액 반환
      */
     @Transactional
@@ -56,8 +64,15 @@ public class PointService {
             throw new InsufficientBalanceException("잔액이 부족합니다");
         }
 
+        Long balanceBefore = point.getBalance();
+        Long balanceAfter = balanceBefore - amount;
+
         // 차감
         pointRepository.deductBalance(memberId, amount);
+
+        // 이력 기록
+        createPointHistory(point.getId(), memberId, TransactionType.USE, amount,
+                          balanceBefore, balanceAfter, null, "적립금 차감");
 
         // 업데이트된 정보 조회 후 반환
         Point updatedPoint = pointRepository.findByMemberId(memberId)
@@ -71,6 +86,7 @@ public class PointService {
      * - HttpSession에서 memberId 가져오기
      * - memberId로 적립금 조회
      * - 복구 (balance = balance + amount)
+     * - 이력 기록
      * - 업데이트된 잔액 반환
      */
     @Transactional
@@ -80,14 +96,56 @@ public class PointService {
         Point point = pointRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new PointNotFoundException("적립금 정보를 찾을 수 없습니다"));
 
+        Long balanceBefore = point.getBalance();
+        Long balanceAfter = balanceBefore + amount;
+
         // 복구
         pointRepository.restoreBalance(memberId, amount);
+
+        // 이력 기록
+        createPointHistory(point.getId(), memberId, TransactionType.RESTORE, amount,
+                          balanceBefore, balanceAfter, null, "적립금 복구");
 
         // 업데이트된 정보 조회 후 반환
         Point updatedPoint = pointRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new PointNotFoundException("적립금 정보를 찾을 수 없습니다"));
 
         return BalanceResponse.from(updatedPoint);
+    }
+
+    /**
+     * 적립금 변동 이력 조회
+     * - HttpSession에서 memberId 가져오기
+     * - memberId로 적립금 이력 조회 (최신순)
+     * - PointHistoryResponse 리스트 반환
+     */
+    @Transactional(readOnly = true)
+    public List<PointHistoryResponse> getPointHistory(HttpSession session) {
+        Long memberId = getMemberIdFromSession(session);
+
+        List<PointHistory> pointHistories = pointHistoryRepository.findByMemberIdOrderByCreatedAtDesc(memberId);
+
+        return PointHistoryResponse.from(pointHistories);
+    }
+
+    /**
+     * 적립금 이력 기록
+     */
+    private void createPointHistory(Long pointId, Long memberId, TransactionType transactionType,
+                                   Long amount, Long balanceBefore, Long balanceAfter,
+                                   String orderNumber, String description) {
+        PointHistory pointHistory = PointHistory.builder()
+                .pointId(pointId)
+                .memberId(memberId)
+                .transactionType(transactionType.name())
+                .amount(amount)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .orderNumber(orderNumber)
+                .description(description)
+                .build();
+
+        pointHistoryRepository.insertHistory(pointHistory);
     }
 
     /**

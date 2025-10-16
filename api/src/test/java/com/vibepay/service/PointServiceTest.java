@@ -5,6 +5,7 @@ import com.vibepay.dto.BalanceResponse;
 import com.vibepay.exception.InsufficientBalanceException;
 import com.vibepay.exception.PointNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
+import com.vibepay.repository.PointHistoryRepository;
 import com.vibepay.repository.PointRepository;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -31,6 +33,9 @@ class PointServiceTest {
 
     @Mock
     private PointRepository pointRepository;
+
+    @Mock
+    private PointHistoryRepository pointHistoryRepository;
 
     @Mock
     private HttpSession session;
@@ -128,6 +133,7 @@ class PointServiceTest {
         then(session).should(times(1)).getAttribute("memberId");
         then(pointRepository).should(times(2)).findByMemberId(memberId);
         then(pointRepository).should(times(1)).deductBalance(memberId, deductAmount);
+        then(pointHistoryRepository).should(times(1)).insertHistory(any());
     }
 
     @Test
@@ -146,6 +152,7 @@ class PointServiceTest {
         then(session).should(times(1)).getAttribute("memberId");
         then(pointRepository).should(times(1)).findByMemberId(memberId);
         then(pointRepository).should(never()).deductBalance(anyLong(), anyLong());
+        then(pointHistoryRepository).should(never()).insertHistory(any());
     }
 
     @Test
@@ -164,6 +171,7 @@ class PointServiceTest {
         then(session).should(times(1)).getAttribute("memberId");
         then(pointRepository).should(times(1)).findByMemberId(memberId);
         then(pointRepository).should(never()).deductBalance(anyLong(), anyLong());
+        then(pointHistoryRepository).should(never()).insertHistory(any());
     }
 
     @Test
@@ -193,6 +201,7 @@ class PointServiceTest {
         then(session).should(times(1)).getAttribute("memberId");
         then(pointRepository).should(times(2)).findByMemberId(memberId);
         then(pointRepository).should(times(1)).restoreBalance(memberId, restoreAmount);
+        then(pointHistoryRepository).should(times(1)).insertHistory(any());
     }
 
     @Test
@@ -211,5 +220,6 @@ class PointServiceTest {
         then(session).should(times(1)).getAttribute("memberId");
         then(pointRepository).should(times(1)).findByMemberId(memberId);
         then(pointRepository).should(never()).restoreBalance(anyLong(), anyLong());
+        then(pointHistoryRepository).should(never()).insertHistory(any());
     }
 }

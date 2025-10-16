@@ -35,6 +35,18 @@ public interface OrderRepository {
     List<Order> findByMemberId(Long memberId);
 
     /**
+     * 회원의 주문 목록 조회 (페이징)
+     */
+    List<Order> findByMemberIdWithPaging(@Param("memberId") Long memberId,
+                                        @Param("offset") long offset,
+                                        @Param("size") int size);
+
+    /**
+     * 회원의 총 주문 개수 조회
+     */
+    long countByMemberId(Long memberId);
+
+    /**
      * 주문 상태 업데이트
      */
     void updateStatus(@Param("id") Long id, @Param("status") OrderStatus status);

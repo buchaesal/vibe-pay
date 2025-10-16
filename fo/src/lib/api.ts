@@ -77,3 +77,36 @@ export const api = {
   delete: <T>(endpoint: string, headers?: Record<string, string>) =>
     request<T>(endpoint, { method: 'DELETE', headers }),
 };
+
+// 주문 관련 API
+export const orderApi = {
+  // 적립금 잔액 조회
+  getPointBalance: () => api.get<{ balance: number }>('/api/point/balance'),
+
+  // 주문 생성
+  createOrder: (orderData: {
+    productName: string;
+    productPrice: number;
+    quantity: number;
+    pointUsed: number;
+    totalAmount: number;
+    agreedToTerms: boolean;
+  }) => api.post<{ orderId: string; status: string; message: string }>('/api/order/create', orderData),
+
+  // 적립금 차감
+  deductPoint: (data: { amount: number; orderId: string }) =>
+    api.post<{ success: boolean; remainingBalance: number; message: string }>('/api/point/deduct', data),
+
+  // 주문 목록 조회
+  getOrderList: () => api.get<any[]>('/api/order/list'),
+
+  // 주문 목록 조회 (페이징)
+  getOrderListWithPaging: (page: number = 0, size: number = 10) =>
+    api.get<any>(`/api/order/page?page=${page}&size=${size}`),
+
+  // 주문 상세 조회
+  getOrderDetail: (orderId: string) => api.get<any>(`/api/order/${orderId}`),
+
+  // 주문 취소
+  cancelOrder: (orderId: string) => api.post<any>(`/api/order/${orderId}/cancel`),
+};
