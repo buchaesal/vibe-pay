@@ -110,3 +110,26 @@ export const orderApi = {
   // 주문 취소
   cancelOrder: (orderId: string) => api.post<any>(`/api/order/${orderId}/cancel`),
 };
+
+// 결제 관련 API
+export const paymentApi = {
+  // PG 인증 파라미터 조회
+  getPgAuthParams: (price: number, goodname: string) =>
+    api.get<any>(`/api/pg/auth-params?price=${price}&goodname=${encodeURIComponent(goodname)}`),
+
+  // 결제 승인
+  approvePayment: (request: any) =>
+    api.post<any>('/api/payment/approve', request),
+
+  // 결제 취소
+  cancelPayment: (request: any) =>
+    api.post<any>('/api/payment/cancel', request),
+
+  // 결제 내역 조회
+  getPaymentHistory: (page: number = 0, size: number = 10) =>
+    api.get<any>(`/api/payment/history?page=${page}&size=${size}`),
+
+  // 결제 상세 조회
+  getPaymentDetail: (paymentId: number) =>
+    api.get<any>(`/api/payment/${paymentId}`),
+};

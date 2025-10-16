@@ -95,15 +95,12 @@ public class PaymentController {
                 session, pageRequest.getPage(), pageRequest.getSize());
 
         // 실제 서비스에서는 전체 개수도 조회해야 하지만, 여기서는 간소화
-        PageResponse<PaymentResponse> response = PageResponse.<PaymentResponse>builder()
-                .content(payments)
-                .page(pageRequest.getPage())
-                .size(pageRequest.getSize())
-                .totalElements((long) payments.size())
-                .totalPages(1)
-                .first(pageRequest.getPage() == 0)
-                .last(true)
-                .build();
+        PageResponse<PaymentResponse> response = PageResponse.of(
+                payments,
+                pageRequest.getPage(),
+                pageRequest.getSize(),
+                (long) payments.size()
+        );
 
         return ResponseEntity.ok(response);
     }

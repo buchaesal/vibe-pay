@@ -28,7 +28,7 @@ class PgServiceTest {
     @InjectMocks
     private PgService pgService;
 
-    private Member testMember;
+    private com.vibepay.dto.MemberResponse testMemberResponse;
 
     @BeforeEach
     void setUp() {
@@ -38,12 +38,11 @@ class PgServiceTest {
         ReflectionTestUtils.setField(pgService, "iniApiKey", "ItEQKi3rY7uvDS8l");
         ReflectionTestUtils.setField(pgService, "hashKey", "3CB8183A4BE283555ACC8363C0360223");
 
-        // 테스트용 회원 데이터
-        testMember = Member.builder()
+        // 테스트용 회원 응답 데이터
+        testMemberResponse = com.vibepay.dto.MemberResponse.builder()
                 .id(1L)
                 .email("test@example.com")
                 .name("테스트사용자")
-                .password("encodedPassword")
                 .build();
     }
 
@@ -54,7 +53,7 @@ class PgServiceTest {
         Integer price = 10000;
         String goodname = "테스트 상품";
 
-        when(memberService.getCurrentMemberEntity(session)).thenReturn(testMember);
+        when(memberService.getCurrentMember(session)).thenReturn(testMemberResponse);
 
         // when
         PgAuthParamsDto result = pgService.generateAuthParams(session, price, goodname);
@@ -89,7 +88,7 @@ class PgServiceTest {
         Integer price = 10000;
         String goodname = "테스트 상품";
 
-        when(memberService.getCurrentMemberEntity(session)).thenReturn(testMember);
+        when(memberService.getCurrentMember(session)).thenReturn(testMemberResponse);
 
         // when
         PgAuthParamsDto result1 = pgService.generateAuthParams(session, price, goodname);
@@ -107,7 +106,7 @@ class PgServiceTest {
         Integer price = 10000;
         String goodname = "테스트 상품";
 
-        when(memberService.getCurrentMemberEntity(session)).thenReturn(testMember);
+        when(memberService.getCurrentMember(session)).thenReturn(testMemberResponse);
 
         // when
         PgAuthParamsDto result1 = pgService.generateAuthParams(session, price, goodname);
@@ -124,7 +123,7 @@ class PgServiceTest {
         // given
         String goodname = "테스트 상품";
 
-        when(memberService.getCurrentMemberEntity(session)).thenReturn(testMember);
+        when(memberService.getCurrentMember(session)).thenReturn(testMemberResponse);
 
         // when
         PgAuthParamsDto result1 = pgService.generateAuthParams(session, 10000, goodname);

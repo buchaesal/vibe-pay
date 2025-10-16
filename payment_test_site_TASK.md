@@ -122,53 +122,53 @@
 ### Task 3-1: 적립금 API 개발
 **담당 에이전트**: api-agent
 
-- [ ] Point Domain 클래스 생성
-- [ ] PointDto (요청/응답) 생성
-- [ ] PointRepository (MyBatis Mapper) 생성
-- [ ] PointService 생성
+- [x] Point Domain 클래스 생성
+- [x] PointDto (요청/응답) 생성
+- [x] PointRepository (MyBatis Mapper) 생성
+- [x] PointService 생성
   - 잔액 조회 로직
   - 적립금 차감 로직
   - 적립금 복구 로직
-- [ ] PointController 생성
+- [x] PointController 생성
   - GET /api/point/balance
   - POST /api/point/deduct
   - POST /api/point/restore
-- [ ] 서비스 레벨 테스트 코드 작성
+- [x] 서비스 레벨 테스트 코드 작성
 
 ### Task 3-2: 주문 API 개발
 **담당 에이전트**: api-agent
 
-- [ ] Order Domain 클래스 생성
-- [ ] OrderDto (요청/응답) 생성
-- [ ] OrderRepository (MyBatis Mapper) 생성
-- [ ] OrderService 생성
+- [x] Order Domain 클래스 생성
+- [x] OrderDto (요청/응답) 생성
+- [x] OrderRepository (MyBatis Mapper) 생성
+- [x] OrderService 생성
   - 주문 생성 로직
   - 주문 목록 조회 로직
   - 주문 상세 조회 로직
   - 주문 취소 로직
-- [ ] OrderController 생성
+- [x] OrderController 생성
   - POST /api/order/create
   - GET /api/order/list
   - GET /api/order/{orderId}
   - POST /api/order/{orderId}/cancel
-- [ ] 서비스 레벨 테스트 코드 작성
+- [x] 서비스 레벨 테스트 코드 작성
 
 ### Task 3-3: 주문서 화면 개발
 **담당 에이전트**: fo-agent
 
-- [ ] 주문서 페이지 (/order) 생성
+- [x] 주문서 페이지 (/order) 생성
   - OrderForm 컴포넌트
   - 상품 정보 입력 (상품명, 상품금액, 수량)
   - 총 주문금액 자동 계산
   - 약관 동의 체크박스
-- [ ] 적립금 표시 컴포넌트
+- [x] 적립금 표시 컴포넌트
   - 적립금 잔액 조회 API 연동
   - 사용할 적립금 입력
 
 ### Task 3-4: 주문 목록 화면 개발
 **담당 에이전트**: fo-agent
 
-- [ ] 주문 목록 페이지 (/order/list) 생성
+- [x] 주문 목록 페이지 (/order/list) 생성
   - OrderList 컴포넌트
   - 주문 목록 조회 API 연동
   - 주문 상세 정보 표시
@@ -182,13 +182,37 @@
 ### 목표
 이니시스 PG사를 통한 카드 결제 기능 구현
 
-**전제 조건**: 
+**전제 조건**:
 - 결제 정보 테이블 (payment) 생성 완료
+
+### 카드 결제 프로세스
+```
+1. 주문서에서 "결제하기" 클릭
+   ↓
+2. PG 인증창 호출 (이니시스/토스 팝업)
+   ↓
+3. 사용자가 카드 정보 입력 및 인증 완료
+   ↓
+4. "결제 중..." 화면으로 이동 (로딩 상태)
+   ↓
+5. 인증 응답값 수신
+   ↓
+6. 주문하기 API 호출 (POST /api/order/create)
+   - 내부적으로 결제 승인 API 호출 (POST /api/payment/approve)
+   ↓
+7-1. 성공: 주문 완료 화면 (/order/complete)
+7-2. 실패: 주문 실패 화면 (에러 메시지 표시)
+```
+
+**중요**:
+- 주문 생성과 결제 승인을 분리하지 않고, 주문 API 내부에서 결제 승인을 처리
+- PG 인증 후 바로 승인 API를 호출하는 것이 아니라, 주문 API를 통해 승인 처리
+- 결제 중 화면에서 사용자에게 로딩 상태를 명확히 표시
 
 ### Task 4-1: PG 인증값 조회 API 개발
 **담당 에이전트**: api-agent
 
-**참고 문서**: 
+**참고 문서**:
 - 이니시스 PC 표준결제: https://manual.inicis.com/pay/stdpay_pc.html
 
 **이니시스 환경 변수**:
@@ -199,29 +223,29 @@ iniApiKey=ItEQKi3rY7uvDS8l
 hashKey=3CB8183A4BE283555ACC8363C0360223
 ```
 
-- [ ] PgAuthParamsDto 생성
-- [ ] PgService 생성
+- [x] PgAuthParamsDto 생성
+- [x] PgService 생성
   - 이니시스 인증에 필요한 값 생성 로직
     - mid, timestamp, signKey 기반 해시 생성
     - oid (주문번호) 생성
-- [ ] PgController 생성
+- [x] PgController 생성
   - GET /api/pg/auth-params
-- [ ] 환경 변수 설정 (이니시스 mid, signKey, iniApiKey, hashKey)
+- [x] 환경 변수 설정 (이니시스 mid, signKey, iniApiKey, hashKey)
 
 ### Task 4-2: 결제 승인/취소 API 개발 (이니시스)
 **담당 에이전트**: api-agent
 
-**참고 문서**: 
+**참고 문서**:
 - 이니시스 PC 표준결제: https://manual.inicis.com/pay/stdpay_pc.html
 
-- [ ] Payment Domain 클래스 생성
-- [ ] PaymentDto (요청/응답) 생성
-- [ ] PaymentRepository (MyBatis Mapper) 생성
-- [ ] 결제 전략 인터페이스 설계
+- [x] Payment Domain 클래스 생성
+- [x] PaymentDto (요청/응답) 생성
+- [x] PaymentRepository (MyBatis Mapper) 생성
+- [x] 결제 전략 인터페이스 설계
   - PaymentStrategy 인터페이스
   - CardPaymentStrategy 추상 클래스
   - InicisPaymentStrategy 구현 클래스
-- [ ] PaymentService 생성
+- [x] PaymentService 생성
   - 결제 승인 로직
     - 승인 요청 (PG사 API 호출)
     - 승인 성공 시 결제 정보 저장
@@ -229,40 +253,40 @@ hashKey=3CB8183A4BE283555ACC8363C0360223
   - 결제 취소 로직
     - 취소 요청 (PG사 API 호출)
     - 결제 정보 업데이트
-- [ ] PaymentController 생성
+- [x] PaymentController 생성
   - POST /api/payment/approve
   - POST /api/payment/cancel
-- [ ] 이니시스 PG 연동 유틸리티 클래스 생성
-- [ ] 서비스 레벨 테스트 코드 작성
+- [x] 이니시스 PG 연동 유틸리티 클래스 생성
+- [x] 서비스 레벨 테스트 코드 작성
 
 ### Task 4-3: 결제 화면 개발 (이니시스)
 **담당 에이전트**: fo-agent
 
-**참고 문서**: 
+**참고 문서**:
 - 이니시스 PC 표준결제: https://manual.inicis.com/pay/stdpay_pc.html
 
-- [ ] PaymentSelector 컴포넌트 생성
+- [x] PaymentSelector 컴포넌트 생성
   - 결제수단 선택 (카드, 적립금, 복합)
   - 결제 금액 입력
   - 금액 검증 (100원 초과, 총액 일치)
-- [ ] 이니시스 결제 처리 로직 구현
+- [x] 이니시스 결제 처리 로직 구현
   - PG 인증값 조회 API 호출
   - 이니시스 JS 동적 다운로드
   - 결제 인증창 팝업 호출
   - 인증 응답 수신
   - 승인 요청 API 호출
-- [ ] 주문완료 페이지 (/order/complete) 생성
+- [x] 주문완료 페이지 (/order/complete) 생성
   - 결제 완료 정보 표시
   - 승인취소 버튼
 
 ### Task 4-4: 복합 결제 및 취소 기능 구현
 **담당 에이전트**: fo-agent
 
-- [ ] 복합 결제 로직 구현
+- [x] 복합 결제 로직 구현
   - 적립금 차감 API 호출
   - 카드 결제 진행
   - 실패 시 적립금 복구
-- [ ] 주문 취소 기능 구현
+- [x] 주문 취소 기능 구현
   - 취소 버튼 클릭 시 취소 API 호출
   - 취소 완료 처리
 
@@ -361,14 +385,14 @@ secretKey=test_sk_P9BRQmyarY56W4lPgbnNrJ07KzLN  # 승인용
 - [x] 회원 인증 화면 개발 완료
 
 ### Iteration 3
-- [ ] 적립금/주문 API 개발 완료
-- [ ] 주문서/주문목록 화면 개발 완료
+- [x] 적립금/주문 API 개발 완료
+- [x] 주문서/주문목록 화면 개발 완료
 
 ### Iteration 4
-- [ ] 이니시스 PG 인증값 조회 API 개발 완료
-- [ ] 이니시스 결제 API 개발 완료
-- [ ] 이니시스 결제 화면 개발 완료
-- [ ] 복합 결제 및 취소 기능 완료
+- [x] 이니시스 PG 인증값 조회 API 개발 완료
+- [x] 이니시스 결제 API 개발 완료
+- [x] 이니시스 결제 화면 개발 완료
+- [x] 복합 결제 및 취소 기능 완료
 
 ### Iteration 5
 - [ ] 토스페이먼츠 API 개발 완료

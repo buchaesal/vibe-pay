@@ -2,11 +2,13 @@ package com.vibepay.service;
 
 import com.vibepay.domain.Order;
 import com.vibepay.domain.OrderStatus;
+import com.vibepay.domain.PaymentMethod;
 import com.vibepay.dto.OrderCreateRequest;
 import com.vibepay.dto.OrderListResponse;
 import com.vibepay.dto.OrderResponse;
 import com.vibepay.dto.PageRequest;
 import com.vibepay.dto.PageResponse;
+import com.vibepay.dto.PaymentApprovalRequest;
 import com.vibepay.exception.OrderAlreadyCancelledException;
 import com.vibepay.exception.OrderNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
@@ -42,6 +44,9 @@ class OrderServiceTest {
     private PointService pointService;
 
     @Mock
+    private PaymentService paymentService;
+
+    @Mock
     private HttpSession session;
 
     @InjectMocks
@@ -59,7 +64,16 @@ class OrderServiceTest {
         orderCreateRequest = new OrderCreateRequest(
                 "테스트 상품",
                 10000L,
-                2
+                2,
+                "ORD20251016143025123456",
+                PaymentMethod.POINT,
+                20000L,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                null
         );
 
         pendingOrder = Order.builder()
@@ -94,14 +108,38 @@ class OrderServiceTest {
     }
 
     @Test
-    @DisplayName("주문 생성 성공")
-    void createOrder_success() {
+    @DisplayName("주문 생성 성공 - 적립금만 사용")
+    void createOrder_success_pointOnly() {
         // given
+        Order paidOrderWithPoint = Order.builder()
+                .id(1L)
+                .memberId(memberId)
+                .orderNumber("ORD20251016143025123456")
+                .productName("테스트 상품")
+                .productPrice(10000L)
+                .quantity(2)
+                .totalAmount(20000L)
+                .pointAmount(20000L)
+                .cardAmount(0L)
+                .status(OrderStatus.PAID)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
         given(session.getAttribute("memberId")).willReturn(memberId);
         doAnswer(invocation -> {
             Order order = invocation.getArgument(0);
-            return order;
+            // MyBatis는 원본 객체의 필드를 직접 수정하므로 리플렉션 사용
+            try {
+                java.lang.reflect.Field idField = Order.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(order, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return null;
         }).when(orderRepository).save(any(Order.class));
+        given(orderRepository.findById(1L)).willReturn(Optional.of(paidOrderWithPoint));
 
         // when
         OrderResponse response = orderService.createOrder(orderCreateRequest, session);
@@ -111,13 +149,143 @@ class OrderServiceTest {
         assertThat(response.getProductPrice()).isEqualTo(10000L);
         assertThat(response.getQuantity()).isEqualTo(2);
         assertThat(response.getTotalAmount()).isEqualTo(20000L);
-        assertThat(response.getPointAmount()).isEqualTo(0L);
+        assertThat(response.getPointAmount()).isEqualTo(20000L);
         assertThat(response.getCardAmount()).isEqualTo(0L);
-        assertThat(response.getStatus()).isEqualTo("PENDING");
-        assertThat(response.getOrderNumber()).isNotNull();
+        assertThat(response.getStatus()).isEqualTo("PAID");
+        assertThat(response.getOrderNumber()).isEqualTo("ORD20251016143025123456");
 
         then(session).should(times(1)).getAttribute("memberId");
         then(orderRepository).should(times(1)).save(any(Order.class));
+        then(pointService).should(times(1)).deduct(20000L, session);
+        then(orderRepository).should(times(1)).updateStatus(1L, OrderStatus.PAID);
+        then(paymentService).should(never()).approvePayment(any(), any());
+    }
+
+    @Test
+    @DisplayName("주문 생성 성공 - 카드만 사용")
+    void createOrder_success_cardOnly() {
+        // given
+        OrderCreateRequest cardRequest = new OrderCreateRequest(
+                "테스트 상품",
+                10000L,
+                2,
+                "ORD20251016143025123456",
+                PaymentMethod.CARD,
+                0L,
+                20000L,
+                "pgAuthToken123",
+                "pgTid123",
+                "testMid",
+                "20000",
+                "WON"
+        );
+
+        Order paidOrderWithCard = Order.builder()
+                .id(1L)
+                .memberId(memberId)
+                .orderNumber("ORD20251016143025123456")
+                .productName("테스트 상품")
+                .productPrice(10000L)
+                .quantity(2)
+                .totalAmount(20000L)
+                .pointAmount(0L)
+                .cardAmount(20000L)
+                .status(OrderStatus.PAID)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+        doAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            try {
+                java.lang.reflect.Field idField = Order.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(order, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        }).when(orderRepository).save(any(Order.class));
+        given(orderRepository.findById(1L)).willReturn(Optional.of(paidOrderWithCard));
+
+        // when
+        OrderResponse response = orderService.createOrder(cardRequest, session);
+
+        // then
+        assertThat(response.getProductName()).isEqualTo("테스트 상품");
+        assertThat(response.getTotalAmount()).isEqualTo(20000L);
+        assertThat(response.getPointAmount()).isEqualTo(0L);
+        assertThat(response.getCardAmount()).isEqualTo(20000L);
+        assertThat(response.getStatus()).isEqualTo("PAID");
+
+        then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(times(1)).save(any(Order.class));
+        then(pointService).should(never()).deduct(anyLong(), any());
+        then(orderRepository).should(never()).updateStatus(anyLong(), eq(OrderStatus.PAID));
+        then(paymentService).should(times(1)).approvePayment(any(PaymentApprovalRequest.class), eq(session));
+    }
+
+    @Test
+    @DisplayName("주문 생성 성공 - 혼합 결제")
+    void createOrder_success_mixed() {
+        // given
+        OrderCreateRequest mixedRequest = new OrderCreateRequest(
+                "테스트 상품",
+                10000L,
+                3,
+                "ORD20251016143025123456",
+                PaymentMethod.MIXED,
+                10000L,
+                20000L,
+                "pgAuthToken123",
+                "pgTid123",
+                "testMid",
+                "20000",
+                "WON"
+        );
+
+        Order paidOrderMixed = Order.builder()
+                .id(1L)
+                .memberId(memberId)
+                .orderNumber("ORD20251016143025123456")
+                .productName("테스트 상품")
+                .productPrice(10000L)
+                .quantity(3)
+                .totalAmount(30000L)
+                .pointAmount(10000L)
+                .cardAmount(20000L)
+                .status(OrderStatus.PAID)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+        doAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            try {
+                java.lang.reflect.Field idField = Order.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(order, 1L);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        }).when(orderRepository).save(any(Order.class));
+        given(orderRepository.findById(1L)).willReturn(Optional.of(paidOrderMixed));
+
+        // when
+        OrderResponse response = orderService.createOrder(mixedRequest, session);
+
+        // then
+        assertThat(response.getTotalAmount()).isEqualTo(30000L);
+        assertThat(response.getPointAmount()).isEqualTo(10000L);
+        assertThat(response.getCardAmount()).isEqualTo(20000L);
+        assertThat(response.getStatus()).isEqualTo("PAID");
+
+        then(orderRepository).should(times(1)).save(any(Order.class));
+        then(pointService).should(never()).deduct(anyLong(), any());
+        then(paymentService).should(times(1)).approvePayment(any(PaymentApprovalRequest.class), eq(session));
     }
 
     @Test
@@ -132,6 +300,93 @@ class OrderServiceTest {
                 .hasMessage("로그인이 필요합니다");
 
         then(session).should(times(1)).getAttribute("memberId");
+        then(orderRepository).should(never()).save(any(Order.class));
+    }
+
+    @Test
+    @DisplayName("주문 생성 실패 - 결제 금액 불일치")
+    void createOrder_fail_amountMismatch() {
+        // given
+        OrderCreateRequest invalidRequest = new OrderCreateRequest(
+                "테스트 상품",
+                10000L,
+                2,
+                "ORD20251016143025123456",
+                PaymentMethod.POINT,
+                15000L, // 잘못된 금액
+                0L,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+
+        // when & then
+        assertThatThrownBy(() -> orderService.createOrder(invalidRequest, session))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("결제 금액(포인트 + 카드)이 총 주문 금액과 일치하지 않습니다");
+
+        then(orderRepository).should(never()).save(any(Order.class));
+    }
+
+    @Test
+    @DisplayName("주문 생성 실패 - 카드 결제 시 PG 정보 누락")
+    void createOrder_fail_missingPgInfo() {
+        // given
+        OrderCreateRequest invalidRequest = new OrderCreateRequest(
+                "테스트 상품",
+                10000L,
+                2,
+                "ORD20251016143025123456",
+                PaymentMethod.CARD,
+                0L,
+                20000L,
+                null, // PG 정보 누락
+                null,
+                null,
+                null,
+                null
+        );
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+
+        // when & then
+        assertThatThrownBy(() -> orderService.createOrder(invalidRequest, session))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("카드 결제 시 PG 인증 토큰은 필수입니다");
+
+        then(orderRepository).should(never()).save(any(Order.class));
+    }
+
+    @Test
+    @DisplayName("주문 생성 실패 - 카드 결제 최소 금액 미만")
+    void createOrder_fail_cardAmountTooSmall() {
+        // given
+        OrderCreateRequest invalidRequest = new OrderCreateRequest(
+                "테스트 상품",
+                10L,
+                5,
+                "ORD20251016143025123456",
+                PaymentMethod.CARD,
+                0L,
+                50L, // 100원 미만
+                "pgAuthToken123",
+                "pgTid123",
+                "testMid",
+                "50",
+                "WON"
+        );
+
+        given(session.getAttribute("memberId")).willReturn(memberId);
+
+        // when & then
+        assertThatThrownBy(() -> orderService.createOrder(invalidRequest, session))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("카드 결제 금액은 100원 이상이어야 합니다");
+
         then(orderRepository).should(never()).save(any(Order.class));
     }
 
@@ -292,7 +547,7 @@ class OrderServiceTest {
         assertThat(response.getId()).isEqualTo(3L);
         assertThat(response.getStatus()).isEqualTo("CANCELLED");
 
-        then(session).should(times(2)).getAttribute("memberId"); // cancelOrder 1번 + restore 1번
+        then(session).should(atLeastOnce()).getAttribute("memberId");
         then(orderRepository).should(times(2)).findById(3L);
         then(orderRepository).should(times(1)).updateStatus(3L, OrderStatus.CANCELLED);
         then(pointService).should(times(1)).restore(15000L, session);

@@ -2,16 +2,17 @@ package com.vibepay.service;
 
 import com.vibepay.domain.Order;
 import com.vibepay.domain.OrderStatus;
+import com.vibepay.domain.PaymentMethod;
 import com.vibepay.dto.OrderCreateRequest;
 import com.vibepay.dto.OrderListResponse;
 import com.vibepay.dto.OrderResponse;
 import com.vibepay.dto.PageRequest;
 import com.vibepay.dto.PageResponse;
+import com.vibepay.dto.PaymentApprovalRequest;
 import com.vibepay.exception.OrderAlreadyCancelledException;
 import com.vibepay.exception.OrderNotFoundException;
 import com.vibepay.exception.UnauthorizedException;
 import com.vibepay.repository.OrderRepository;
-import com.vibepay.util.OrderNumberGenerator;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,41 +32,69 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final PointService pointService;
+    private final PaymentService paymentService;
 
     /**
-     * 주문 생성
+     * 주문 생성 및 결제 처리
      * - HttpSession에서 memberId 가져오기
-     * - 주문번호 생성
-     * - totalAmount 계산 (productPrice * quantity)
-     * - Order 객체 생성 및 저장
+     * - 요청 검증
+     * - Order 객체 생성 및 저장 (PENDING 상태)
+     * - 결제 처리 (적립금 차감 또는 카드 결제 승인)
      */
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest request, HttpSession session) {
         Long memberId = getMemberIdFromSession(session);
 
-        // 주문번호 생성
-        String orderNumber = OrderNumberGenerator.generate();
-
         // 총 금액 계산
         Long totalAmount = request.getProductPrice() * request.getQuantity();
+
+        // 요청 검증
+        request.validate(totalAmount);
 
         // 주문 객체 생성
         Order order = Order.builder()
                 .memberId(memberId)
-                .orderNumber(orderNumber)
+                .orderNumber(request.getOrderNumber())
                 .productName(request.getProductName())
                 .productPrice(request.getProductPrice())
                 .quantity(request.getQuantity())
                 .totalAmount(totalAmount)
-                .pointAmount(0L)
-                .cardAmount(0L)
+                .pointAmount(request.getPointAmount())
+                .cardAmount(request.getCardAmount())
                 .status(OrderStatus.PENDING)
                 .build();
 
-        // 저장
+        // 저장 (MyBatis가 order 객체에 ID를 설정함)
         orderRepository.save(order);
 
-        return OrderResponse.from(order);
+        // 결제 처리
+        if (request.getPaymentMethod() == PaymentMethod.POINT) {
+            // 적립금만 사용하는 경우
+            pointService.deduct(request.getPointAmount(), session);
+            orderRepository.updateStatus(order.getId(), OrderStatus.PAID);
+        } else if (request.getCardAmount() > 0) {
+            // 카드 결제가 포함된 경우 (CARD 또는 MIXED)
+            PaymentApprovalRequest paymentRequest = PaymentApprovalRequest.builder()
+                    .orderId(order.getId())
+                    .paymentMethod(request.getPaymentMethod())
+                    .totalAmount(totalAmount)
+                    .cardAmount(request.getCardAmount())
+                    .pointAmount(request.getPointAmount())
+                    .pgTid(request.getPgTid())
+                    .mid(request.getMid())
+                    .oid(request.getOrderNumber())
+                    .price(request.getPrice())
+                    .currency(request.getCurrency())
+                    .build();
+
+            paymentService.approvePayment(paymentRequest, session);
+        }
+
+        // 업데이트된 주문 조회 후 반환
+        Order updatedOrder = orderRepository.findById(order.getId())
+                .orElseThrow(() -> new OrderNotFoundException("주문을 찾을 수 없습니다"));
+
+        return OrderResponse.from(updatedOrder);
     }
 
     /**

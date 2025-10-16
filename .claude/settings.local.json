@@ -22,7 +22,9 @@
       "Bash(./gradlew.bat clean test:*)",
       "Bash(./mvnw.cmd clean test:*)",
       "Bash(./mvnw test:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(./mvnw clean test:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

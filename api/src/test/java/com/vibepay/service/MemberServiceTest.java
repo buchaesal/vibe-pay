@@ -71,15 +71,6 @@ class MemberServiceTest {
         // given
         given(memberRepository.findByEmail(signupRequest.getEmail())).willReturn(Optional.empty());
         given(passwordEncoder.encode(signupRequest.getPassword())).willReturn("encodedPassword");
-        given(memberRepository.save(any(Member.class))).willAnswer(invocation -> {
-            Member savedMember = invocation.getArgument(0);
-            return Member.builder()
-                    .id(1L)
-                    .email(savedMember.getEmail())
-                    .password(savedMember.getPassword())
-                    .name(savedMember.getName())
-                    .build();
-        });
 
         // when
         MemberResponse response = memberService.signup(signupRequest);
