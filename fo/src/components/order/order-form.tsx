@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ProductInfoSection } from './product-info-section';
-import { PointSection } from './point-section';
-import { OrderSummary } from './order-summary';
+import { PaymentSelector } from '@/components/payment/PaymentSelector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { orderApi } from '@/lib/api';
-import { CreateOrderRequest } from '@/types/order';
+import { orderApi, paymentApi } from '@/lib/api';
+import { requestInicisPayment } from '@/lib/payment/inicis';
+import { requestTossPayment } from '@/lib/payment/toss';
+import type { PaymentMethod, PgAuthResponse, PgAuthParams, TossAuthParams } from '@/types/payment';
 
 interface OrderFormProps {
   onOrderComplete?: (orderId: string) => void;
@@ -17,28 +18,51 @@ interface FormErrors {
   productName?: string;
   productPrice?: string;
   quantity?: string;
-  pointUsed?: string;
   terms?: string;
 }
 
 export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
-  // Form state
   const [productName, setProductName] = useState('');
   const [productPrice, setProductPrice] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [pointUsed, setPointUsed] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
+  const [pointAmount, setPointAmount] = useState(0);
+  const [pointBalance, setPointBalance] = useState(0);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // UI state
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  // Calculated values
-  const productAmount = productPrice * quantity;
-  const finalAmount = Math.max(0, productAmount - pointUsed);
+  const totalAmount = productPrice * quantity;
+  const cardAmount = paymentMethod === 'POINT' ? 0
+    : paymentMethod === 'MIXED' ? totalAmount - pointAmount
+    : totalAmount;
 
-  // Validation
+  useEffect(() => {
+    const fetchPointBalance = async () => {
+      try {
+        const response = await orderApi.getPointBalance();
+        setPointBalance(response.balance);
+      } catch (error) {
+        console.error('적립금 조회 실패:', error);
+      }
+    };
+    fetchPointBalance();
+  }, []);
+
+  const generateOrderNumber = (): string => {
+    const now = new Date();
+    const timestamp = now.getFullYear().toString() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `ORD${timestamp}${random}`;
+  };
+
   const validateForm = useCallback((): FormErrors => {
     const newErrors: FormErrors = {};
 
@@ -58,18 +82,13 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
       newErrors.quantity = '수량은 1~99개 사이로 입력해주세요.';
     }
 
-    if (pointUsed > productAmount) {
-      newErrors.pointUsed = '사용할 적립금이 상품금액을 초과할 수 없습니다.';
-    }
-
     if (!agreedToTerms) {
       newErrors.terms = '약관에 동의해주세요.';
     }
 
     return newErrors;
-  }, [productName, productPrice, quantity, pointUsed, productAmount, agreedToTerms]);
+  }, [productName, productPrice, quantity, agreedToTerms]);
 
-  // Handlers
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -84,32 +103,61 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
     setErrors({});
 
     try {
-      const orderData: CreateOrderRequest = {
+      const orderNumber = generateOrderNumber();
+
+      const orderData = {
+        orderNumber,
         productName: productName.trim(),
         productPrice,
         quantity,
-        pointUsed,
-        totalAmount: finalAmount,
-        agreedToTerms,
+        paymentMethod,
+        pointAmount,
+        cardAmount,
       };
 
-      const response = await orderApi.createOrder(orderData);
+      sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
 
-      if (response.orderId) {
-        // 적립금 사용이 있다면 차감 처리
-        if (pointUsed > 0) {
-          await orderApi.deductPoint({
-            amount: pointUsed,
-            orderId: response.orderId,
-          });
-        }
+      if (paymentMethod === 'POINT') {
+        const response = await orderApi.createOrder({
+          ...orderData,
+          pgAuthToken: undefined,
+          pgTid: undefined,
+          mid: undefined,
+          price: undefined,
+          currency: undefined,
+        });
 
+        sessionStorage.removeItem('pendingOrder');
         onOrderComplete?.(response.orderId);
+
+      } else {
+        // 카드 결제 포함 - PG사 선택 후 인증창 호출
+        const pgResponse: PgAuthResponse = await paymentApi.getPgAuthParams(cardAmount, productName);
+
+        if (pgResponse.pgType === 'TOSS') {
+          await requestTossPayment(
+            0,
+            totalAmount,
+            cardAmount,
+            pointAmount,
+            productName
+          );
+        } else {
+          await requestInicisPayment(
+            0,
+            totalAmount,
+            cardAmount,
+            pointAmount,
+            productName
+          );
+        }
       }
+
     } catch (error: any) {
-      console.error('주문 생성 실패:', error);
+      console.error('결제 처리 실패:', error);
+      sessionStorage.removeItem('pendingOrder');
       setSubmitError(
-        error.message || '주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
+        error.message || '결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
       );
     } finally {
       setIsSubmitting(false);
@@ -137,13 +185,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
     }
   }, [errors.quantity]);
 
-  const handlePointUsedChange = useCallback((value: number) => {
-    setPointUsed(value);
-    if (errors.pointUsed) {
-      setErrors(prev => ({ ...prev, pointUsed: undefined }));
-    }
-  }, [errors.pointUsed]);
-
   const handleTermsChange = useCallback((checked: boolean) => {
     setAgreedToTerms(checked);
     if (errors.terms) {
@@ -167,17 +208,14 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
         }}
       />
 
-      <PointSection
-        pointUsed={pointUsed}
-        onPointUsedChange={handlePointUsedChange}
-        maxUsableAmount={productAmount}
-        error={errors.pointUsed}
-      />
-
-      <OrderSummary
-        productAmount={productAmount}
-        pointUsed={pointUsed}
-        finalAmount={finalAmount}
+      <PaymentSelector
+        totalAmount={totalAmount}
+        pointBalance={pointBalance}
+        productName={productName}
+        paymentMethod={paymentMethod}
+        pointAmount={pointAmount}
+        onPaymentMethodChange={setPaymentMethod}
+        onPointAmountChange={setPointAmount}
       />
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -206,7 +244,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onOrderComplete }) => {
         disabled={isSubmitting}
         className="w-full"
       >
-        {isSubmitting ? '주문 처리 중...' : `${finalAmount.toLocaleString()}원 주문하기`}
+        {isSubmitting ? '처리 중...' : `${totalAmount.toLocaleString()}원 결제하기`}
       </Button>
     </form>
   );

@@ -34,20 +34,14 @@ public class PaymentApprovalRequest {
     private Long pointAmount;
 
     // 이니시스 인증 응답값
-    @NotNull(message = "PG 거래 ID는 필수입니다")
     private String pgTid;
-
-    @NotNull(message = "상점 거래 고유번호는 필수입니다")
     private String mid;
-
-    @NotNull(message = "상점 주문번호는 필수입니다")
     private String oid;
-
-    @NotNull(message = "승인 요청 금액은 필수입니다")
     private String price;
-
-    @NotNull(message = "통화 코드는 필수입니다")
     private String currency;
+
+    // 토스페이먼츠 인증 응답값
+    private String paymentKey;
 
     /**
      * 카드 결제 금액 검증

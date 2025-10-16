@@ -1,38 +1,34 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import type { PaymentMethod } from '@/types/payment';
 
 interface PaymentSelectorProps {
-  orderId: number;
   totalAmount: number;
   pointBalance: number;
   productName: string;
-  onPaymentComplete: (orderId: number) => void;
+  paymentMethod: PaymentMethod;
+  pointAmount: number;
+  onPaymentMethodChange: (method: PaymentMethod) => void;
+  onPointAmountChange: (amount: number) => void;
 }
 
 export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
-  orderId,
   totalAmount,
   pointBalance,
   productName,
-  onPaymentComplete,
+  paymentMethod,
+  pointAmount,
+  onPaymentMethodChange,
+  onPointAmountChange,
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
-  const [pointAmount, setPointAmount] = useState<number>(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string>('');
-
-  // 카드 결제 금액 자동 계산
   const cardAmount = useMemo(() => {
     if (paymentMethod === 'POINT') return 0;
     if (paymentMethod === 'MIXED') return totalAmount - pointAmount;
     return totalAmount;
   }, [paymentMethod, totalAmount, pointAmount]);
 
-  // 검증
   const validationError = useMemo(() => {
     if (paymentMethod === 'MIXED') {
       if (pointAmount <= 0) {
@@ -57,71 +53,24 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
   }, [paymentMethod, pointAmount, cardAmount, totalAmount, pointBalance]);
 
   const handlePaymentMethodChange = (method: PaymentMethod) => {
-    setPaymentMethod(method);
-    setError('');
+    onPaymentMethodChange(method);
 
-    // 적립금 전액 결제 선택 시 자동으로 전액 설정
     if (method === 'POINT') {
-      setPointAmount(totalAmount);
+      onPointAmountChange(totalAmount);
     } else if (method === 'CARD') {
-      setPointAmount(0);
+      onPointAmountChange(0);
     }
   };
 
   const handlePointAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     const numValue = value ? parseInt(value, 10) : 0;
-    setPointAmount(Math.min(numValue, pointBalance, totalAmount));
-    setError('');
+    onPointAmountChange(Math.min(numValue, pointBalance, totalAmount));
   };
 
   const handleUseAllPoints = () => {
-    const maxUsable = Math.min(pointBalance, totalAmount - 100); // 카드 최소 100원 남기기
-    setPointAmount(maxUsable);
-  };
-
-  const handlePayment = async () => {
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setIsProcessing(true);
-    setError('');
-
-    try {
-      // 적립금 전액 결제
-      if (paymentMethod === 'POINT') {
-        // TODO: 적립금 전액 결제 API 호출
-        alert('적립금 전액 결제 기능은 추후 구현 예정입니다.');
-        onPaymentComplete(orderId);
-        return;
-      }
-
-      // 카드 결제 또는 복합 결제
-      const { requestInicisPayment, approvePayment } = await import('@/lib/payment/inicis');
-
-      // 이니시스 결제 인증
-      const approvalRequest = await requestInicisPayment(
-        orderId,
-        totalAmount,
-        cardAmount,
-        pointAmount,
-        productName
-      );
-
-      // 결제 승인
-      const response = await approvePayment(approvalRequest);
-
-      // 성공
-      onPaymentComplete(orderId);
-
-    } catch (err: any) {
-      console.error('결제 처리 실패:', err);
-      setError(err.message || '결제 처리 중 오류가 발생했습니다.');
-    } finally {
-      setIsProcessing(false);
-    }
+    const maxUsable = Math.min(pointBalance, totalAmount - 100);
+    onPointAmountChange(maxUsable);
   };
 
   return (
@@ -148,7 +97,6 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
         <h3 className="text-lg font-semibold text-gray-900 mb-4">결제수단 선택</h3>
 
         <div className="space-y-3">
-          {/* 카드 전액 결제 */}
           <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
             paymentMethod === 'CARD' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
           }`}>
@@ -163,7 +111,6 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
             <span className="ml-3 font-medium text-gray-900">카드 전액 결제</span>
           </label>
 
-          {/* 적립금 전액 결제 */}
           <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
             paymentMethod === 'POINT' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
           } ${pointBalance < totalAmount ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -182,7 +129,6 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
             )}
           </label>
 
-          {/* 복합 결제 */}
           <label className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
             paymentMethod === 'MIXED' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
           }`}>
@@ -198,7 +144,6 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
           </label>
         </div>
 
-        {/* 복합 결제 시 적립금 입력 */}
         {paymentMethod === 'MIXED' && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
@@ -255,26 +200,10 @@ export const PaymentSelector: React.FC<PaymentSelectorProps> = ({
         </div>
       </div>
 
-      {/* 에러 메시지 */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-red-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* 결제하기 버튼 */}
-      <Button
-        onClick={handlePayment}
-        size="lg"
-        loading={isProcessing}
-        disabled={isProcessing || !!validationError}
-        className="w-full"
-      >
-        {isProcessing ? '결제 처리 중...' : `${totalAmount.toLocaleString()}원 결제하기`}
-      </Button>
-
       {validationError && (
-        <p className="text-center text-sm text-red-600">{validationError}</p>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-600 text-sm text-center">{validationError}</p>
+        </div>
       )}
     </div>
   );

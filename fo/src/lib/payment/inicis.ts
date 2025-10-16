@@ -1,7 +1,7 @@
 // 이니시스 결제 처리 로직
 
 import { paymentApi } from '../api';
-import type { PgAuthParams, InicisAuthResponse, PaymentApprovalRequest } from '@/types/payment';
+import type { PgAuthParams, PgAuthResponse, InicisAuthResponse, PaymentApprovalRequest } from '@/types/payment';
 
 declare global {
   interface Window {
@@ -58,7 +58,13 @@ export async function requestInicisPayment(
     await loadInicisScript();
 
     // 2. PG 인증 파라미터 조회
-    const authParams: PgAuthParams = await paymentApi.getPgAuthParams(cardAmount, productName);
+    const response: PgAuthResponse = await paymentApi.getPgAuthParams(cardAmount, productName);
+
+    if (response.pgType !== 'INICIS') {
+      throw new Error('이니시스 결제만 지원합니다');
+    }
+
+    const authParams = response.authParams as PgAuthParams;
 
     // 3. 결제 폼 생성
     const form = createPaymentForm(authParams);
@@ -121,7 +127,7 @@ function createPaymentForm(authParams: PgAuthParams): HTMLFormElement {
     timestamp: authParams.timestamp,
     signature: authParams.signature,
     mKey: authParams.mKey,
-    returnUrl: `${window.location.origin}/api/payment/inicis/callback`,
+    returnUrl: `${window.location.origin}/order/processing`,
     closeUrl: `${window.location.origin}/api/payment/inicis/close`,
     popupUrl: `${window.location.origin}/api/payment/inicis/popup`,
   };

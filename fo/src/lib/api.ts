@@ -114,8 +114,12 @@ export const orderApi = {
 // 결제 관련 API
 export const paymentApi = {
   // PG 인증 파라미터 조회
-  getPgAuthParams: (price: number, goodname: string) =>
-    api.get<any>(`/api/pg/auth-params?price=${price}&goodname=${encodeURIComponent(goodname)}`),
+  getPgAuthParams: (price: number, goodname: string, pgType?: string) => {
+    const url = pgType
+      ? `/api/pg/auth-params?price=${price}&goodname=${encodeURIComponent(goodname)}&pgType=${pgType}`
+      : `/api/pg/auth-params?price=${price}&goodname=${encodeURIComponent(goodname)}`;
+    return api.get<any>(url);
+  },
 
   // 결제 승인
   approvePayment: (request: any) =>

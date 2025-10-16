@@ -2,6 +2,7 @@ package com.vibepay.service;
 
 import com.vibepay.domain.Member;
 import com.vibepay.dto.PgAuthParamsDto;
+import com.vibepay.dto.TossAuthParamsDto;
 import com.vibepay.dto.MemberResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * PG 결제 서비스
- * 이니시스 결제 인증에 필요한 파라미터 생성 담당
+ * 이니시스, 토스페이먼츠 결제 인증에 필요한 파라미터 생성 담당
  */
 @Service
 public class PgService {
@@ -34,6 +35,9 @@ public class PgService {
     @Value("${payment.inicis.hashKey:3CB8183A4BE283555ACC8363C0360223}")
     private String hashKey;
 
+    @Value("${toss.client-key}")
+    private String tossClientKey;
+
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     public PgService(MemberService memberService) {
@@ -41,14 +45,65 @@ public class PgService {
     }
 
     /**
-     * PG 인증 파라미터 생성
+     * PG사 선택 (이니시스 50%, 토스 50%)
+     *
+     * @return 선택된 PG사 타입 ("INICIS" 또는 "TOSS")
+     */
+    public String selectPgType() {
+        // 50:50 비율로 랜덤 선택
+        double random = Math.random();
+        if (random < 0.5) {
+            return "INICIS";
+        } else {
+            return "TOSS";
+        }
+    }
+
+    /**
+     * PG 인증 파라미터 생성 (PG사 자동 선택)
      *
      * @param session HTTP 세션 (회원 인증 확인용)
      * @param price 결제 금액
      * @param goodname 상품명
+     * @return PG 인증 파라미터 (PG사에 따라 PgAuthParamsDto 또는 TossAuthParamsDto)
+     */
+    public Object generateAuthParams(HttpSession session, Integer price, String goodname) {
+        String pgType = selectPgType();
+        System.out.println("선택된 PG사: " + pgType);
+
+        if ("TOSS".equals(pgType)) {
+            return generateTossAuthParams(session, price, goodname);
+        } else {
+            return generateInicisAuthParams(session, price, goodname);
+        }
+    }
+
+    /**
+     * PG 인증 파라미터 생성 (PG사 지정)
+     *
+     * @param session HTTP 세션 (회원 인증 확인용)
+     * @param price 결제 금액
+     * @param goodname 상품명
+     * @param pgType PG사 타입 ("INICIS" 또는 "TOSS")
      * @return PG 인증 파라미터
      */
-    public PgAuthParamsDto generateAuthParams(HttpSession session, Integer price, String goodname) {
+    public Object generateAuthParamsWithPgType(HttpSession session, Integer price, String goodname, String pgType) {
+        if ("TOSS".equals(pgType)) {
+            return generateTossAuthParams(session, price, goodname);
+        } else {
+            return generateInicisAuthParams(session, price, goodname);
+        }
+    }
+
+    /**
+     * 이니시스 PG 인증 파라미터 생성
+     *
+     * @param session HTTP 세션 (회원 인증 확인용)
+     * @param price 결제 금액
+     * @param goodname 상품명
+     * @return 이니시스 PG 인증 파라미터
+     */
+    private PgAuthParamsDto generateInicisAuthParams(HttpSession session, Integer price, String goodname) {
         // 현재 로그인한 회원 정보 조회
         MemberResponse currentMember = memberService.getCurrentMember(session);
 
@@ -130,6 +185,37 @@ public class PgService {
             System.err.println("해시 알고리즘 오류: " + e.getMessage());
             throw new RuntimeException("해시 서명 생성 중 오류가 발생했습니다", e);
         }
+    }
+
+    /**
+     * 토스페이먼츠 PG 인증 파라미터 생성
+     *
+     * @param session HTTP 세션 (회원 인증 확인용)
+     * @param price 결제 금액
+     * @param goodname 상품명
+     * @return 토스페이먼츠 인증 파라미터
+     */
+    public TossAuthParamsDto generateTossAuthParams(HttpSession session, Integer price, String goodname) {
+        // 현재 로그인한 회원 정보 조회
+        MemberResponse currentMember = memberService.getCurrentMember(session);
+
+        // 타임스탬프 생성
+        String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMATTER);
+
+        // 주문번호 생성 (타임스탬프 기반 유니크 값)
+        String orderId = generateOrderId(timestamp);
+
+        System.out.println("토스페이먼츠 인증 파라미터 생성 완료 - memberId: " + currentMember.getId() +
+                ", orderId: " + orderId + ", amount: " + price);
+
+        return new TossAuthParamsDto(
+                tossClientKey,
+                orderId,
+                price,
+                goodname,
+                currentMember.getName(),
+                currentMember.getEmail()
+        );
     }
 
     /**

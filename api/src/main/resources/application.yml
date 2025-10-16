@@ -36,6 +36,11 @@ payment:
     iniApiKey: ItEQKi3rY7uvDS8l
     hashKey: 3CB8183A4BE283555ACC8363C0360223
 
+# 토스페이먼츠 설정
+toss:
+  client-key: ${TOSS_CLIENT_KEY:test_ck_DpexMgkW36PL5OnYYn7drGbR5ozO}
+  secret-key: ${TOSS_SECRET_KEY:test_sk_P9BRQmyarY56W4lPgbnNrJ07KzLN}
+
 ---
 spring:
   config:

@@ -49,6 +49,20 @@ export interface PgAuthParams {
   goodname: string;
 }
 
+export interface TossAuthParams {
+  clientKey: string;
+  orderId: string;
+  amount: number;
+  orderName: string;
+  customerName: string;
+  customerEmail: string;
+}
+
+export interface PgAuthResponse {
+  pgType: 'INICIS' | 'TOSS';
+  authParams: PgAuthParams | TossAuthParams;
+}
+
 export interface InicisAuthResponse {
   resultCode: string;
   resultMsg: string;

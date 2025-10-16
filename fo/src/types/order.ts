@@ -12,12 +12,18 @@ export interface OrderSummary {
 }
 
 export interface CreateOrderRequest {
+  orderNumber: string;
   productName: string;
   productPrice: number;
   quantity: number;
-  pointUsed: number;
-  totalAmount: number;
-  agreedToTerms: boolean;
+  paymentMethod: 'CARD' | 'POINT' | 'MIXED';
+  pointAmount: number;
+  cardAmount: number;
+  pgAuthToken?: string;
+  pgTid?: string;
+  mid?: string;
+  price?: string;
+  currency?: string;
 }
 
 export interface CreateOrderResponse {

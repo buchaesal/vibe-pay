@@ -24,7 +24,9 @@
       "Bash(./mvnw test:*)",
       "Bash(chmod:*)",
       "Bash(./mvnw clean test:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(./gradlew :api:test:*)"
     ],
     "deny": [],
     "ask": []
